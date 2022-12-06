@@ -4,15 +4,17 @@ import "io"
 
 // A byteReader implements a sliding window over an io.Reader.
 type byteReader struct {
-	data   []byte
-	offset int
-	r      io.Reader
-	err    error
+	data        []byte
+	offset      int
+	inputOffset int
+	r           io.Reader
+	err         error
 }
 
 // release discards n bytes from the front of the window.
 func (b *byteReader) release(n int) {
 	b.offset += n
+	b.inputOffset += n
 }
 
 // window returns the current window.

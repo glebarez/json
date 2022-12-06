@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"io"
 )
 
@@ -41,6 +42,14 @@ var whitespace = [256]bool{
 	'\t': true,
 }
 
+func (s *Scanner) InputOffset() int {
+	return s.br.inputOffset + s.pos
+}
+
+func (s *Scanner) Buffered() io.Reader {
+	return bytes.NewReader(s.br.window(0))
+}
+
 // Next returns a []byte referencing the the next lexical token in the stream.
 // The []byte is valid until Next is called again.
 // If the stream is at its end, or an error has occured, Next returns a zero
@@ -48,17 +57,17 @@ var whitespace = [256]bool{
 //
 // A valid token begins with one of the following:
 //
-//  { Object start
-//  [ Array start
-//  } Object end
-//  ] Array End
-//  , Literal comma
-//  : Literal colon
-//  t JSON true
-//  f JSON false
-//  n JSON null
-//  " A string, possibly containing backslash escaped entites.
-//  -, 0-9 A number
+//	{ Object start
+//	[ Array start
+//	} Object end
+//	] Array End
+//	, Literal comma
+//	: Literal colon
+//	t JSON true
+//	f JSON false
+//	n JSON null
+//	" A string, possibly containing backslash escaped entites.
+//	-, 0-9 A number
 func (s *Scanner) Next() []byte {
 	s.br.release(s.pos)
 	w := s.br.window(0)

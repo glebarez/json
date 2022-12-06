@@ -15,7 +15,16 @@ type Decoder struct {
 	scanner Scanner
 	state   func(*Decoder) ([]byte, error)
 	stack
+	peek *peekResult
 }
+
+type peekResult struct {
+	b   []byte
+	err error
+}
+
+// singleton for peek result
+var peek peekResult
 
 // NewDecoder returns a new Decoder for the supplied Reader r.
 func NewDecoder(r io.Reader) *Decoder {
@@ -52,6 +61,18 @@ func (s *stack) pop() bool {
 
 func (s *stack) len() int { return len(*s) }
 
+// InputOffset returns the input stream byte offset of the current decoder position.
+// The offset gives the location of the end of the most recently returned token.
+func (d *Decoder) InputOffset() int {
+	return d.scanner.InputOffset()
+}
+
+// Buffered returns a reader of the data remaining in the Decoder's buffer.
+// The reader is valid until the next call to any of the Decoder methods.
+func (d *Decoder) Buffered() io.Reader {
+	return d.scanner.Buffered()
+}
+
 // Token returns the next JSON token in the input stream.
 // At the end of the input stream, Token returns nil, io.EOF.
 //
@@ -72,6 +93,10 @@ func (d *Decoder) Token() (json.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	return decodeToken(tok)
+}
+
+func decodeToken(tok []byte) (json.Token, error) {
 	switch tok[0] {
 	case '{', '[', ']', '}':
 		return json.Delim(tok[0]), nil
@@ -86,6 +111,16 @@ func (d *Decoder) Token() (json.Token, error) {
 	}
 }
 
+// Peek returns next token without consiming it.
+// The return values are the same as in Next().
+func (d *Decoder) Peek() (json.Token, error) {
+	tok, err := d.PeekToken()
+	if err != nil {
+		return nil, err
+	}
+	return decodeToken(tok)
+}
+
 // NextToken returns a []byte referencing the next logical token in the stream.
 // The []byte is valid until Token is called again.
 // At the end of the input stream, Token returns nil, io.EOF.
@@ -96,19 +131,33 @@ func (d *Decoder) Token() (json.Token, error) {
 //
 // A valid token begins with one of the following:
 //
-//    { Object start
-//    [ Array start
-//    } Object end
-//    ] Array End
-//    t JSON true
-//    f JSON false
-//    n JSON null
-//    " A string, possibly containing backslash escaped entites.
-//    -, 0-9 A number
+//	{ Object start
+//	[ Array start
+//	} Object end
+//	] Array End
+//	t JSON true
+//	f JSON false
+//	n JSON null
+//	" A string, possibly containing backslash escaped entites.
+//	-, 0-9 A number
 //
 // Commas and colons are elided.
 func (d *Decoder) NextToken() ([]byte, error) {
+	if d.peek != nil {
+		d.peek = nil
+		return peek.b, peek.err
+	}
 	return d.state(d)
+}
+
+// PeekToken returns next token as bytes, without consiming it.
+// The return values are the same as in NextToken().
+func (d *Decoder) PeekToken() ([]byte, error) {
+	if d.peek == nil {
+		peek.b, peek.err = d.NextToken()
+		d.peek = &peek
+	}
+	return d.peek.b, d.peek.err
 }
 
 func (d *Decoder) stateObjectString() ([]byte, error) {
