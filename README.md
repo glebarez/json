@@ -1,4 +1,4 @@
-# pkg/json [![GoDoc](https://godoc.org/github.com/pkg/json?status.svg)](https://godoc.org/github.com/pkg/json)
+# pkg/json [![GoDoc](https://godoc.org/github.com/glebarez/json?status.svg)](https://godoc.org/github.com/glebarez/json)
 
 An alternative JSON decoder for Go.
 
