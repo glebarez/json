@@ -394,7 +394,7 @@ func (d *Decoder) decodeValue(v reflect.Value) error {
 		return nil
 	case Null:
 		switch v.Kind() {
-		case reflect.Ptr, reflect.Map, reflect.Slice:
+		case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface:
 			v.Set(reflect.Zero(v.Type()))
 			return nil
 		default:

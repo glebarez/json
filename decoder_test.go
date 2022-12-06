@@ -1,6 +1,7 @@
 package json
 
 import (
+	"bytes"
 	"io"
 	"reflect"
 	"strings"
@@ -115,7 +116,12 @@ func TestDecoderDecode(t *testing.T) {
 
 	assert := func(v interface{}, want interface{}) {
 		t.Helper()
-		got := reflect.ValueOf(v).Interface()
+		var got interface{}
+		if v == nil {
+			got = nil
+		} else {
+			got = reflect.ValueOf(v).Interface()
+		}
 		if !reflect.DeepEqual(want, got) {
 			t.Errorf("expected: %v, got: %v", want, got)
 		}
@@ -155,6 +161,14 @@ func TestDecoderDecode(t *testing.T) {
 	var sl = []string{"a", "b"}
 	decode("null", &sl)
 	assert(sl, ([]string)(nil))
+
+	var intf interface{} = 1 // set something to be reset to nil
+	decode("null", &intf)
+	assert(intf, nil)
+
+	var intf2 io.Reader = &bytes.Buffer{}
+	decode("null", &intf2)
+	assert(intf2, (io.Reader)(nil))
 
 	var fi interface{}
 	decode("3", &fi)
