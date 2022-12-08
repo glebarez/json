@@ -2,6 +2,7 @@
 package json
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -67,10 +68,25 @@ func (d *Decoder) InputOffset() int {
 	return d.scanner.InputOffset()
 }
 
-// Buffered returns a reader of the data remaining in the Decoder's buffer.
-// The reader is valid until the next call to any of the Decoder methods.
+// Buffered returns a reader for the data remaining in the Decoder's buffer.
+// The buffer starts right after the last token read by Next, NextToken.
+// Current Peek'ed token (if any) is inserted in the front.
+// The reader is valid until the next call to Next, NextToken.
 func (d *Decoder) Buffered() io.Reader {
+	if d.peek != nil {
+		return io.MultiReader(bytes.NewReader(d.peek.b), d.scanner.Buffered())
+	}
 	return d.scanner.Buffered()
+}
+
+// Reader returns io.Reader for the unconsumed part of source stream.
+// It combines the buffered part of decoder (see description for Buffered)
+// with the source reader.
+func (d *Decoder) Reader() io.Reader {
+	return io.MultiReader(
+		d.Buffered(),
+		d.scanner.Source(),
+	)
 }
 
 // Token returns the next JSON token in the input stream.

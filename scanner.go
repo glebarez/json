@@ -31,8 +31,9 @@ func NewScanner(r io.Reader) *Scanner {
 
 // Scanner implements a JSON scanner as defined in RFC 7159.
 type Scanner struct {
-	br  byteReader
-	pos int
+	br   byteReader
+	pos  int
+	peek []byte
 }
 
 var whitespace = [256]bool{
@@ -46,8 +47,39 @@ func (s *Scanner) InputOffset() int {
 	return s.br.inputOffset + s.pos
 }
 
+// Buffered returns a reader for the data remaining in the Scanner's buffer.
+// The buffer starts right after the last token read by Next().
+// Current Peek'ed token (if any) is inserted in the front.
+// The reader is valid until the next call to Next, NextToken.
 func (s *Scanner) Buffered() io.Reader {
-	return bytes.NewReader(s.br.window(0))
+	if s.peek != nil {
+		return bytes.NewReader(s.br.window(0))
+	}
+	return bytes.NewReader(s.br.window(s.pos))
+}
+
+// Source returns underlying reader.
+// Note that some bytes from Source may be already buffered.
+func (s *Scanner) Source() io.Reader {
+	return s.br.r
+}
+
+// Reader returns io.Reader for the unconsumed part of source stream.
+// It combines the buffered part (see description for Buffered)
+// with the source reader.
+func (s *Scanner) Reader() io.Reader {
+	return io.MultiReader(
+		s.Buffered(),
+		s.Source(),
+	)
+}
+
+// Peek returns next token without consuming it.
+func (s *Scanner) Peek() []byte {
+	if s.peek == nil {
+		s.peek = s.Next()
+	}
+	return s.peek
 }
 
 // Next returns a []byte referencing the the next lexical token in the stream.
@@ -69,6 +101,12 @@ func (s *Scanner) Buffered() io.Reader {
 //	" A string, possibly containing backslash escaped entites.
 //	-, 0-9 A number
 func (s *Scanner) Next() []byte {
+	if s.peek != nil {
+		b := s.peek
+		s.peek = nil
+		return b
+	}
+
 	s.br.release(s.pos)
 	w := s.br.window(0)
 loop:
