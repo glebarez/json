@@ -16,16 +16,14 @@ type Decoder struct {
 	scanner Scanner
 	state   func(*Decoder) ([]byte, error)
 	stack
-	peek *peekResult
+	peek peekResult
 }
 
 type peekResult struct {
-	b   []byte
-	err error
+	active bool
+	b      []byte
+	err    error
 }
-
-// singleton for peek result
-var peek peekResult
 
 // NewDecoder returns a new Decoder for the supplied Reader r.
 func NewDecoder(r io.Reader) *Decoder {
@@ -73,7 +71,7 @@ func (d *Decoder) InputOffset() int {
 // Current Peek'ed token (if any) is inserted in the front.
 // The reader is valid until the next call to Next, NextToken.
 func (d *Decoder) Buffered() io.Reader {
-	if d.peek != nil {
+	if d.peek.active {
 		return io.MultiReader(bytes.NewReader(d.peek.b), d.scanner.Buffered())
 	}
 	return d.scanner.Buffered()
@@ -159,9 +157,9 @@ func (d *Decoder) Peek() (json.Token, error) {
 //
 // Commas and colons are elided.
 func (d *Decoder) NextToken() ([]byte, error) {
-	if d.peek != nil {
-		d.peek = nil
-		return peek.b, peek.err
+	if d.peek.active {
+		d.peek.active = false
+		return d.peek.b, d.peek.err
 	}
 	return d.state(d)
 }
@@ -169,9 +167,9 @@ func (d *Decoder) NextToken() ([]byte, error) {
 // PeekToken returns next token as bytes, without consiming it.
 // The return values are the same as in NextToken().
 func (d *Decoder) PeekToken() ([]byte, error) {
-	if d.peek == nil {
-		peek.b, peek.err = d.NextToken()
-		d.peek = &peek
+	if !d.peek.active {
+		d.peek.b, d.peek.err = d.NextToken()
+		d.peek.active = true
 	}
 	return d.peek.b, d.peek.err
 }
