@@ -34,13 +34,8 @@ func NewDecoder(r io.Reader) *Decoder {
 // the []byte buf provided for working storage.
 func NewDecoderBuffer(r io.Reader, buf []byte) *Decoder {
 	return &Decoder{
-		scanner: Scanner{
-			br: byteReader{
-				data: buf[:0],
-				r:    r,
-			},
-		},
-		state: (*Decoder).stateValue,
+		scanner: *NewScannerBuffer(r, buf),
+		state:   (*Decoder).stateValue,
 	}
 }
 

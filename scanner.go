@@ -29,6 +29,16 @@ func NewScanner(r io.Reader) *Scanner {
 	}
 }
 
+// NewScannerBuffer returns new scanner with specified buffer to use.
+func NewScannerBuffer(r io.Reader, buf []byte) *Scanner {
+	return &Scanner{
+		br: byteReader{
+			r:    r,
+			data: buf[:0],
+		},
+	}
+}
+
 // Scanner implements a JSON scanner as defined in RFC 7159.
 type Scanner struct {
 	br   byteReader
