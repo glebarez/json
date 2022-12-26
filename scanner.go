@@ -68,6 +68,13 @@ func (s *Scanner) Buffered() io.Reader {
 	return bytes.NewReader(s.br.window(s.pos))
 }
 
+// Buffer returns raw underlying buffer.
+// The returned buffer may differ from the original buffer, due to grow while decoding.
+// Buffer() may be useful for buffer pools, to put after use.
+func (s *Scanner) Buffer() []byte {
+	return s.br.data
+}
+
 // Source returns underlying reader.
 // Note that some bytes from Source may be already buffered.
 func (s *Scanner) Source() io.Reader {

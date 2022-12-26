@@ -72,6 +72,13 @@ func (d *Decoder) Buffered() io.Reader {
 	return d.scanner.Buffered()
 }
 
+// Buffer returns raw underlying buffer.
+// The returned buffer may differ from the original buffer, due to grow while decoding.
+// Buffer() may be useful for buffer pools, to put after use.
+func (d *Decoder) Buffer() []byte {
+	return d.scanner.Buffer()
+}
+
 // Reader returns io.Reader for the unconsumed part of source stream.
 // It combines the buffered part of decoder (see description for Buffered)
 // with the source reader.
