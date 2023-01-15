@@ -1,6 +1,11 @@
 package json
 
-import "io"
+import (
+	"errors"
+	"io"
+)
+
+var ErrNeedMoreData = errors.New("need more data")
 
 // A byteReader implements a sliding window over an io.Reader.
 type byteReader struct {
@@ -31,6 +36,10 @@ const (
 
 // extend extends the window with data from the underlying reader.
 func (b *byteReader) extend() int {
+	if b.r == nil {
+		b.err = ErrNeedMoreData
+	}
+
 	if b.err != nil {
 		return 0
 	}

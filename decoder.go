@@ -13,7 +13,7 @@ import (
 
 // A Decoder decodes JSON values from an input stream.
 type Decoder struct {
-	scanner Scanner
+	Scanner Scanner
 	state   func(*Decoder) ([]byte, error)
 	stack
 	peek peekResult
@@ -34,7 +34,7 @@ func NewDecoder(r io.Reader) *Decoder {
 // the []byte buf provided for working storage.
 func NewDecoderBuffer(r io.Reader, buf []byte) *Decoder {
 	return &Decoder{
-		scanner: *NewScannerBuffer(r, buf),
+		Scanner: *NewScannerBuffer(r, buf),
 		state:   (*Decoder).stateValue,
 	}
 }
@@ -58,7 +58,7 @@ func (s *stack) len() int { return len(*s) }
 // InputOffset returns the input stream byte offset of the current decoder position.
 // The offset gives the location of the end of the most recently returned token.
 func (d *Decoder) InputOffset() int {
-	return d.scanner.InputOffset()
+	return d.Scanner.InputOffset()
 }
 
 // Buffered returns a reader for the data remaining in the Decoder's buffer.
@@ -67,16 +67,16 @@ func (d *Decoder) InputOffset() int {
 // The reader is valid until the next call to Next, NextToken.
 func (d *Decoder) Buffered() io.Reader {
 	if d.peek.active {
-		return io.MultiReader(bytes.NewReader(d.peek.b), d.scanner.Buffered())
+		return io.MultiReader(bytes.NewReader(d.peek.b), d.Scanner.Buffered())
 	}
-	return d.scanner.Buffered()
+	return d.Scanner.Buffered()
 }
 
 // Buffer returns raw underlying buffer.
 // The returned buffer may differ from the original buffer, due to grow while decoding.
 // Buffer() may be useful for buffer pools, to put after use.
 func (d *Decoder) Buffer() []byte {
-	return d.scanner.Buffer()
+	return d.Scanner.Buffer()
 }
 
 // Reader returns io.Reader for the unconsumed part of source stream.
@@ -85,8 +85,24 @@ func (d *Decoder) Buffer() []byte {
 func (d *Decoder) Reader() io.Reader {
 	return io.MultiReader(
 		d.Buffered(),
-		d.scanner.Source(),
+		d.Scanner.Source(),
 	)
+}
+
+// NewDecoder returns a new Decoder for the supplied Reader r.
+func NewDecoderSupplied() *Decoder {
+	return &Decoder{
+		Scanner: Scanner{},
+		state:   (*Decoder).stateValue,
+	}
+}
+
+func (d *Decoder) BufferOffset(afterLastToken bool) int {
+	return d.Scanner.BufferOffset(afterLastToken)
+}
+
+func (d *Decoder) SupplyData(b []byte) {
+	d.Scanner.SupplyData(b)
 }
 
 // Token returns the next JSON token in the input stream.
@@ -170,14 +186,21 @@ func (d *Decoder) NextToken() ([]byte, error) {
 // The return values are the same as in NextToken().
 func (d *Decoder) PeekToken() ([]byte, error) {
 	if !d.peek.active {
-		d.peek.b, d.peek.err = d.NextToken()
+		b, err := d.NextToken()
+		if err != nil {
+			return b, err
+		}
+		d.peek.b, d.peek.err = b, err
 		d.peek.active = true
 	}
 	return d.peek.b, d.peek.err
 }
 
 func (d *Decoder) stateObjectString() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -202,7 +225,10 @@ func (d *Decoder) stateObjectString() ([]byte, error) {
 }
 
 func (d *Decoder) stateObjectColon() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -216,7 +242,10 @@ func (d *Decoder) stateObjectColon() ([]byte, error) {
 }
 
 func (d *Decoder) stateObjectValue() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -236,7 +265,10 @@ func (d *Decoder) stateObjectValue() ([]byte, error) {
 }
 
 func (d *Decoder) stateObjectComma() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -261,7 +293,10 @@ func (d *Decoder) stateObjectComma() ([]byte, error) {
 }
 
 func (d *Decoder) stateArrayValue() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -294,7 +329,10 @@ func (d *Decoder) stateArrayValue() ([]byte, error) {
 }
 
 func (d *Decoder) stateArrayComma() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}
@@ -319,7 +357,10 @@ func (d *Decoder) stateArrayComma() ([]byte, error) {
 }
 
 func (d *Decoder) stateValue() ([]byte, error) {
-	tok := d.scanner.Next()
+	tok := d.Scanner.Next()
+	if err := d.Scanner.Error(); err != nil && err != io.EOF {
+		return nil, err
+	}
 	if len(tok) < 1 {
 		return nil, io.ErrUnexpectedEOF
 	}

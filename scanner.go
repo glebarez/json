@@ -29,6 +29,12 @@ func NewScanner(r io.Reader) *Scanner {
 	}
 }
 
+func NewScannerSupplied() *Scanner {
+	return &Scanner{
+		br: byteReader{},
+	}
+}
+
 // NewScannerBuffer returns new scanner with specified buffer to use.
 func NewScannerBuffer(r io.Reader, buf []byte) *Scanner {
 	return &Scanner{
@@ -41,9 +47,10 @@ func NewScannerBuffer(r io.Reader, buf []byte) *Scanner {
 
 // Scanner implements a JSON scanner as defined in RFC 7159.
 type Scanner struct {
-	br   byteReader
-	pos  int
-	peek []byte
+	br      byteReader
+	pos     int
+	peek    []byte
+	stashed bytes.Buffer
 }
 
 var whitespace = [256]bool{
@@ -55,6 +62,35 @@ var whitespace = [256]bool{
 
 func (s *Scanner) InputOffset() int {
 	return s.br.inputOffset + s.pos
+}
+
+func (s *Scanner) BufferOffset(afterLastToken bool) int {
+	if afterLastToken {
+		return s.br.offset + s.pos
+	} else {
+		return s.br.offset
+	}
+}
+
+func (s *Scanner) SupplyData(b []byte) {
+	// stash unparsed part (if any)
+	if s.stashed.Len() > 0 {
+		s.stashed.Write(b)
+		b = s.stashed.Bytes()
+		s.stashed.Reset()
+	}
+
+	s.br.data = b
+	s.br.offset = 0
+	s.br.err = nil
+	s.pos = 0
+}
+
+func (s *Scanner) StashUnconsumed() {
+	if s.br.offset < len(s.br.data) {
+		s.stashed.Reset()
+		s.stashed.Write(s.br.window(0))
+	}
 }
 
 // Buffered returns a reader for the data remaining in the Scanner's buffer.
